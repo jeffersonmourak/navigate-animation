@@ -3,14 +3,19 @@
   "version": "1.0.0",
   "description": "A framework-less library to animate your HTML pages",
   "main": "index.js",
-  "dependencies": {
+  "dependencies": {},
+  "devDependencies": {
+    "babel-core": "^6.18.2",
+    "babel-loader": "^6.2.5",
+    "babel-preset-es2015": "^6.14.0",
     "lite-server": "^2.2.2",
     "webpack": "^1.13.3"
   },
-  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "serve": "lite-server"
+    "serve": "lite-server",
+    "webpack:dev": "webpack -d",
+    "webpack:watch-dev": "webpack -d --watch"
   },
   "repository": {
     "type": "git",
