@@ -1,16 +1,32 @@
 {
-  "name": "navigation",
+  "name": "navigate-animation",
   "version": "1.0.0",
-  "description": "",
+  "description": "A framework-less library to animate your HTML pages",
   "main": "index.js",
+  "dependencies": {
+    "lite-server": "^2.2.2",
+    "webpack": "^1.13.3"
+  },
+  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "serve": "lite-server"
   },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "lite-server": "^2.2.2",
-    "webpack": "^1.13.3"
-  }
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeffersonmourak/navigate-animation.git"
+  },
+  "keywords": [
+    "Animation",
+    "State-animate",
+    "Page-animate",
+    "navigate-animation",
+    "navigate"
+  ],
+  "author": "jeffersonmourak",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jeffersonmourak/navigate-animation/issues"
+  },
+  "homepage": "https://github.com/jeffersonmourak/navigate-animation#readme"
 }
