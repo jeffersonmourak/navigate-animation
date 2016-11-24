@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "A framework-less library to animate your HTML pages",
   "main": "index.js",
-  "dependencies": {},
+  "dependencies": {
+    "axios": "^0.15.2"
+  },
   "devDependencies": {
     "babel-core": "^6.18.2",
     "babel-loader": "^6.2.5",
