@@ -50,15 +50,19 @@
 	'use strict';
 	
 	var linkDiscovery = __webpack_require__(/*! ./workers/link-discovery */ 1);
-	var nextWindow = __webpack_require__(/*! ./workers/nextWindow */ 29);
-	var axios = __webpack_require__(/*! axios */ 2);
+	var nextWindow = __webpack_require__(/*! ./workers/nextWindow */ 2);
+	var axios = __webpack_require__(/*! axios */ 4);
 	linkDiscovery.updateLinks();
 	
-	linkDiscovery.onNavigate(function (element, event) {
+	linkDiscovery.onNavigate(function (url, event) {
 	  nextWindow.prepare();
-	  axios.get(element.href).then(function (response) {
-	    nextWindow.loadNextWindowData(response.data);
+	  axios.get(url).then(function (response) {
+	    nextWindow.loadNextWindowData(response.data, url);
 	    nextWindow.setAsCurrent();
+	    if (event.type !== 'popstate') {
+	      nextWindow.updateURL();
+	    }
+	    linkDiscovery.updateLinks();
 	  });
 	});
 
@@ -81,9 +85,15 @@
 	
 	    this.linksElements = [];
 	    this.navigationSubscribers = [];
+	    window.onpopstate = this._historyTrap.bind(this);
 	  }
 	
 	  _createClass(LinkDiscovery, [{
+	    key: '_historyTrap',
+	    value: function _historyTrap(event) {
+	      this.initEvent(event.target.location.href, event);
+	    }
+	  }, {
 	    key: 'updateLinks',
 	    value: function updateLinks() {
 	      var _this = this;
@@ -92,15 +102,15 @@
 	      _links.forEach(function (element, index) {
 	        element.setAttribute('navigate-animation', '');
 	        element.setAttribute('navigate-animation-id', index);
-	        element.onclick = _this.initEvent.bind(_this, element);
+	        element.onclick = _this.initEvent.bind(_this, element.href);
 	      });
 	    }
 	  }, {
 	    key: 'initEvent',
-	    value: function initEvent(element, event) {
+	    value: function initEvent(url, event) {
 	      event.preventDefault();
 	      this.navigationSubscribers.forEach(function (callback) {
-	        callback(element, event);
+	        callback(url, event);
 	      });
 	    }
 	  }, {
@@ -117,15 +127,141 @@
 
 /***/ },
 /* 2 */
+/*!************************************!*\
+  !*** ./core/workers/nextWindow.js ***!
+  \************************************/
+/***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	var HTMLCompiler = __webpack_require__(/*! ./htmlCompiler */ 3);
+	var Animation = __webpack_require__(/*! ./animation */ 30);
+	
+	var NextWindow = function () {
+	  function NextWindow() {
+	    _classCallCheck(this, NextWindow);
+	
+	    this.nextWindow = document.createElement('div');
+	    this.nextWindow.style.display = 'none';
+	    this.nextWindow.id = 'navigate-animation-next-window';
+	    this.head = null;
+	    this.body = null;
+	    this.url = null;
+	    this.host = "http://" + window.location.host;
+	  }
+	
+	  _createClass(NextWindow, [{
+	    key: 'prepare',
+	    value: function prepare() {
+	      var nextWindow = document.getElementById('navigate-animation-next-window');
+	      if (nextWindow !== null) {
+	        this.nextWindow = nextWindow;
+	      }
+	      document.body.appendChild(this.nextWindow);
+	    }
+	  }, {
+	    key: 'loadNextWindowData',
+	    value: function loadNextWindowData(data, url) {
+	      var page = HTMLCompiler.compile(data);
+	      this.head = page.getElementsByTagName('head')[0];
+	      this.body = page.getElementsByTagName('body')[0];
+	      this.nextWindow.appendChild(this.body);
+	      this.url = url;
+	    }
+	  }, {
+	    key: '_clearBody',
+	    value: function _clearBody() {
+	      while (document.body.firstChild) {
+	        document.body.removeChild(document.body.firstChild);
+	      }
+	    }
+	  }, {
+	    key: '_clearHead',
+	    value: function _clearHead() {
+	      while (document.head.firstChild) {
+	        document.head.removeChild(document.head.firstChild);
+	      }
+	    }
+	  }, {
+	    key: 'updateURL',
+	    value: function updateURL() {
+	      var nextURL = this.url.replace(this.host, '');
+	      history.pushState('title', 'title', nextURL);
+	    }
+	  }, {
+	    key: '_moveChildren',
+	    value: function _moveChildren(element, target) {
+	      while (element.firstChild) {
+	        var child = element.firstChild;
+	        target.appendChild(child);
+	      }
+	    }
+	  }, {
+	    key: 'setAsCurrent',
+	    value: function setAsCurrent() {
+	      var _this = this;
+	
+	      this._clearBody();
+	      this._moveChildren(this.body, document.body);
+	
+	      var to = setTimeout(function () {
+	        _this._clearHead();
+	        _this._moveChildren(_this.head, document.head);
+	      }, 20);
+	    }
+	  }]);
+	
+	  return NextWindow;
+	}();
+	
+	module.exports = new NextWindow();
+
+/***/ },
+/* 3 */
+/*!**************************************!*\
+  !*** ./core/workers/htmlCompiler.js ***!
+  \**************************************/
+/***/ function(module, exports) {
+
+	"use strict";
+	
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+	
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+	
+	var HTMLCompiler = function () {
+	  function HTMLCompiler() {
+	    _classCallCheck(this, HTMLCompiler);
+	  }
+	
+	  _createClass(HTMLCompiler, [{
+	    key: "compile",
+	    value: function compile(htmlString) {
+	      var _DOMParser = new DOMParser();
+	      return _DOMParser.parseFromString(htmlString, "text/html");
+	    }
+	  }]);
+	
+	  return HTMLCompiler;
+	}();
+	
+	module.exports = new HTMLCompiler();
+
+/***/ },
+/* 4 */
 /*!**************************!*\
   !*** ./~/axios/index.js ***!
   \**************************/
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__(/*! ./lib/axios */ 3);
+	module.exports = __webpack_require__(/*! ./lib/axios */ 5);
 
 /***/ },
-/* 3 */
+/* 5 */
 /*!******************************!*\
   !*** ./~/axios/lib/axios.js ***!
   \******************************/
@@ -133,9 +269,9 @@
 
 	'use strict';
 	
-	var utils = __webpack_require__(/*! ./utils */ 4);
-	var bind = __webpack_require__(/*! ./helpers/bind */ 5);
-	var Axios = __webpack_require__(/*! ./core/Axios */ 6);
+	var utils = __webpack_require__(/*! ./utils */ 6);
+	var bind = __webpack_require__(/*! ./helpers/bind */ 7);
+	var Axios = __webpack_require__(/*! ./core/Axios */ 8);
 	
 	/**
 	 * Create an instance of Axios
@@ -168,15 +304,15 @@
 	};
 	
 	// Expose Cancel & CancelToken
-	axios.Cancel = __webpack_require__(/*! ./cancel/Cancel */ 25);
-	axios.CancelToken = __webpack_require__(/*! ./cancel/CancelToken */ 26);
-	axios.isCancel = __webpack_require__(/*! ./cancel/isCancel */ 22);
+	axios.Cancel = __webpack_require__(/*! ./cancel/Cancel */ 27);
+	axios.CancelToken = __webpack_require__(/*! ./cancel/CancelToken */ 28);
+	axios.isCancel = __webpack_require__(/*! ./cancel/isCancel */ 24);
 	
 	// Expose all/spread
 	axios.all = function all(promises) {
 	  return Promise.all(promises);
 	};
-	axios.spread = __webpack_require__(/*! ./helpers/spread */ 27);
+	axios.spread = __webpack_require__(/*! ./helpers/spread */ 29);
 	
 	module.exports = axios;
 	
@@ -185,7 +321,7 @@
 
 
 /***/ },
-/* 4 */
+/* 6 */
 /*!******************************!*\
   !*** ./~/axios/lib/utils.js ***!
   \******************************/
@@ -193,7 +329,7 @@
 
 	'use strict';
 	
-	var bind = __webpack_require__(/*! ./helpers/bind */ 5);
+	var bind = __webpack_require__(/*! ./helpers/bind */ 7);
 	
 	/*global toString:true*/
 	
@@ -493,7 +629,7 @@
 
 
 /***/ },
-/* 5 */
+/* 7 */
 /*!*************************************!*\
   !*** ./~/axios/lib/helpers/bind.js ***!
   \*************************************/
@@ -513,7 +649,7 @@
 
 
 /***/ },
-/* 6 */
+/* 8 */
 /*!***********************************!*\
   !*** ./~/axios/lib/core/Axios.js ***!
   \***********************************/
@@ -521,12 +657,12 @@
 
 	'use strict';
 	
-	var defaults = __webpack_require__(/*! ./../defaults */ 7);
-	var utils = __webpack_require__(/*! ./../utils */ 4);
-	var InterceptorManager = __webpack_require__(/*! ./InterceptorManager */ 19);
-	var dispatchRequest = __webpack_require__(/*! ./dispatchRequest */ 20);
-	var isAbsoluteURL = __webpack_require__(/*! ./../helpers/isAbsoluteURL */ 23);
-	var combineURLs = __webpack_require__(/*! ./../helpers/combineURLs */ 24);
+	var defaults = __webpack_require__(/*! ./../defaults */ 9);
+	var utils = __webpack_require__(/*! ./../utils */ 6);
+	var InterceptorManager = __webpack_require__(/*! ./InterceptorManager */ 21);
+	var dispatchRequest = __webpack_require__(/*! ./dispatchRequest */ 22);
+	var isAbsoluteURL = __webpack_require__(/*! ./../helpers/isAbsoluteURL */ 25);
+	var combineURLs = __webpack_require__(/*! ./../helpers/combineURLs */ 26);
 	
 	/**
 	 * Create a new instance of Axios
@@ -607,7 +743,7 @@
 
 
 /***/ },
-/* 7 */
+/* 9 */
 /*!*********************************!*\
   !*** ./~/axios/lib/defaults.js ***!
   \*********************************/
@@ -615,8 +751,8 @@
 
 	/* WEBPACK VAR INJECTION */(function(process) {'use strict';
 	
-	var utils = __webpack_require__(/*! ./utils */ 4);
-	var normalizeHeaderName = __webpack_require__(/*! ./helpers/normalizeHeaderName */ 9);
+	var utils = __webpack_require__(/*! ./utils */ 6);
+	var normalizeHeaderName = __webpack_require__(/*! ./helpers/normalizeHeaderName */ 11);
 	
 	var PROTECTION_PREFIX = /^\)\]\}',?\n/;
 	var DEFAULT_CONTENT_TYPE = {
@@ -633,10 +769,10 @@
 	  var adapter;
 	  if (typeof XMLHttpRequest !== 'undefined') {
 	    // For browsers use XHR adapter
-	    adapter = __webpack_require__(/*! ./adapters/xhr */ 10);
+	    adapter = __webpack_require__(/*! ./adapters/xhr */ 12);
 	  } else if (typeof process !== 'undefined') {
 	    // For node use HTTP adapter
-	    adapter = __webpack_require__(/*! ./adapters/http */ 10);
+	    adapter = __webpack_require__(/*! ./adapters/http */ 12);
 	  }
 	  return adapter;
 	}
@@ -700,10 +836,10 @@
 	  }
 	};
 	
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(/*! ./~/process/browser.js */ 8)))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(/*! ./~/process/browser.js */ 10)))
 
 /***/ },
-/* 8 */
+/* 10 */
 /*!******************************!*\
   !*** ./~/process/browser.js ***!
   \******************************/
@@ -892,7 +1028,7 @@
 
 
 /***/ },
-/* 9 */
+/* 11 */
 /*!****************************************************!*\
   !*** ./~/axios/lib/helpers/normalizeHeaderName.js ***!
   \****************************************************/
@@ -900,7 +1036,7 @@
 
 	'use strict';
 	
-	var utils = __webpack_require__(/*! ../utils */ 4);
+	var utils = __webpack_require__(/*! ../utils */ 6);
 	
 	module.exports = function normalizeHeaderName(headers, normalizedName) {
 	  utils.forEach(headers, function processHeader(value, name) {
@@ -913,7 +1049,7 @@
 
 
 /***/ },
-/* 10 */
+/* 12 */
 /*!*************************************!*\
   !*** ./~/axios/lib/adapters/xhr.js ***!
   \*************************************/
@@ -921,13 +1057,13 @@
 
 	/* WEBPACK VAR INJECTION */(function(process) {'use strict';
 	
-	var utils = __webpack_require__(/*! ./../utils */ 4);
-	var settle = __webpack_require__(/*! ./../core/settle */ 11);
-	var buildURL = __webpack_require__(/*! ./../helpers/buildURL */ 14);
-	var parseHeaders = __webpack_require__(/*! ./../helpers/parseHeaders */ 15);
-	var isURLSameOrigin = __webpack_require__(/*! ./../helpers/isURLSameOrigin */ 16);
-	var createError = __webpack_require__(/*! ../core/createError */ 12);
-	var btoa = (typeof window !== 'undefined' && window.btoa) || __webpack_require__(/*! ./../helpers/btoa */ 17);
+	var utils = __webpack_require__(/*! ./../utils */ 6);
+	var settle = __webpack_require__(/*! ./../core/settle */ 13);
+	var buildURL = __webpack_require__(/*! ./../helpers/buildURL */ 16);
+	var parseHeaders = __webpack_require__(/*! ./../helpers/parseHeaders */ 17);
+	var isURLSameOrigin = __webpack_require__(/*! ./../helpers/isURLSameOrigin */ 18);
+	var createError = __webpack_require__(/*! ../core/createError */ 14);
+	var btoa = (typeof window !== 'undefined' && window.btoa) || __webpack_require__(/*! ./../helpers/btoa */ 19);
 	
 	module.exports = function xhrAdapter(config) {
 	  return new Promise(function dispatchXhrRequest(resolve, reject) {
@@ -1023,7 +1159,7 @@
 	    // This is only done if running in a standard browser environment.
 	    // Specifically not if we're in a web worker, or react-native.
 	    if (utils.isStandardBrowserEnv()) {
-	      var cookies = __webpack_require__(/*! ./../helpers/cookies */ 18);
+	      var cookies = __webpack_require__(/*! ./../helpers/cookies */ 20);
 	
 	      // Add xsrf header
 	      var xsrfValue = (config.withCredentials || isURLSameOrigin(config.url)) && config.xsrfCookieName ?
@@ -1097,10 +1233,10 @@
 	  });
 	};
 	
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(/*! ./~/process/browser.js */ 8)))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(/*! ./~/process/browser.js */ 10)))
 
 /***/ },
-/* 11 */
+/* 13 */
 /*!************************************!*\
   !*** ./~/axios/lib/core/settle.js ***!
   \************************************/
@@ -1108,7 +1244,7 @@
 
 	'use strict';
 	
-	var createError = __webpack_require__(/*! ./createError */ 12);
+	var createError = __webpack_require__(/*! ./createError */ 14);
 	
 	/**
 	 * Resolve or reject a Promise based on response status.
@@ -1134,7 +1270,7 @@
 
 
 /***/ },
-/* 12 */
+/* 14 */
 /*!*****************************************!*\
   !*** ./~/axios/lib/core/createError.js ***!
   \*****************************************/
@@ -1142,7 +1278,7 @@
 
 	'use strict';
 	
-	var enhanceError = __webpack_require__(/*! ./enhanceError */ 13);
+	var enhanceError = __webpack_require__(/*! ./enhanceError */ 15);
 	
 	/**
 	 * Create an Error with the specified message, config, error code, and response.
@@ -1160,7 +1296,7 @@
 
 
 /***/ },
-/* 13 */
+/* 15 */
 /*!******************************************!*\
   !*** ./~/axios/lib/core/enhanceError.js ***!
   \******************************************/
@@ -1188,7 +1324,7 @@
 
 
 /***/ },
-/* 14 */
+/* 16 */
 /*!*****************************************!*\
   !*** ./~/axios/lib/helpers/buildURL.js ***!
   \*****************************************/
@@ -1196,7 +1332,7 @@
 
 	'use strict';
 	
-	var utils = __webpack_require__(/*! ./../utils */ 4);
+	var utils = __webpack_require__(/*! ./../utils */ 6);
 	
 	function encode(val) {
 	  return encodeURIComponent(val).
@@ -1265,7 +1401,7 @@
 
 
 /***/ },
-/* 15 */
+/* 17 */
 /*!*********************************************!*\
   !*** ./~/axios/lib/helpers/parseHeaders.js ***!
   \*********************************************/
@@ -1273,7 +1409,7 @@
 
 	'use strict';
 	
-	var utils = __webpack_require__(/*! ./../utils */ 4);
+	var utils = __webpack_require__(/*! ./../utils */ 6);
 	
 	/**
 	 * Parse headers into an object
@@ -1311,7 +1447,7 @@
 
 
 /***/ },
-/* 16 */
+/* 18 */
 /*!************************************************!*\
   !*** ./~/axios/lib/helpers/isURLSameOrigin.js ***!
   \************************************************/
@@ -1319,7 +1455,7 @@
 
 	'use strict';
 	
-	var utils = __webpack_require__(/*! ./../utils */ 4);
+	var utils = __webpack_require__(/*! ./../utils */ 6);
 	
 	module.exports = (
 	  utils.isStandardBrowserEnv() ?
@@ -1388,7 +1524,7 @@
 
 
 /***/ },
-/* 17 */
+/* 19 */
 /*!*************************************!*\
   !*** ./~/axios/lib/helpers/btoa.js ***!
   \*************************************/
@@ -1433,7 +1569,7 @@
 
 
 /***/ },
-/* 18 */
+/* 20 */
 /*!****************************************!*\
   !*** ./~/axios/lib/helpers/cookies.js ***!
   \****************************************/
@@ -1441,7 +1577,7 @@
 
 	'use strict';
 	
-	var utils = __webpack_require__(/*! ./../utils */ 4);
+	var utils = __webpack_require__(/*! ./../utils */ 6);
 	
 	module.exports = (
 	  utils.isStandardBrowserEnv() ?
@@ -1495,7 +1631,7 @@
 
 
 /***/ },
-/* 19 */
+/* 21 */
 /*!************************************************!*\
   !*** ./~/axios/lib/core/InterceptorManager.js ***!
   \************************************************/
@@ -1503,7 +1639,7 @@
 
 	'use strict';
 	
-	var utils = __webpack_require__(/*! ./../utils */ 4);
+	var utils = __webpack_require__(/*! ./../utils */ 6);
 	
 	function InterceptorManager() {
 	  this.handlers = [];
@@ -1556,7 +1692,7 @@
 
 
 /***/ },
-/* 20 */
+/* 22 */
 /*!*********************************************!*\
   !*** ./~/axios/lib/core/dispatchRequest.js ***!
   \*********************************************/
@@ -1564,10 +1700,10 @@
 
 	'use strict';
 	
-	var utils = __webpack_require__(/*! ./../utils */ 4);
-	var transformData = __webpack_require__(/*! ./transformData */ 21);
-	var isCancel = __webpack_require__(/*! ../cancel/isCancel */ 22);
-	var defaults = __webpack_require__(/*! ../defaults */ 7);
+	var utils = __webpack_require__(/*! ./../utils */ 6);
+	var transformData = __webpack_require__(/*! ./transformData */ 23);
+	var isCancel = __webpack_require__(/*! ../cancel/isCancel */ 24);
+	var defaults = __webpack_require__(/*! ../defaults */ 9);
 	
 	/**
 	 * Throws a `Cancel` if cancellation has been requested.
@@ -1644,7 +1780,7 @@
 
 
 /***/ },
-/* 21 */
+/* 23 */
 /*!*******************************************!*\
   !*** ./~/axios/lib/core/transformData.js ***!
   \*******************************************/
@@ -1652,7 +1788,7 @@
 
 	'use strict';
 	
-	var utils = __webpack_require__(/*! ./../utils */ 4);
+	var utils = __webpack_require__(/*! ./../utils */ 6);
 	
 	/**
 	 * Transform the data for a request or a response
@@ -1673,7 +1809,7 @@
 
 
 /***/ },
-/* 22 */
+/* 24 */
 /*!****************************************!*\
   !*** ./~/axios/lib/cancel/isCancel.js ***!
   \****************************************/
@@ -1687,7 +1823,7 @@
 
 
 /***/ },
-/* 23 */
+/* 25 */
 /*!**********************************************!*\
   !*** ./~/axios/lib/helpers/isAbsoluteURL.js ***!
   \**********************************************/
@@ -1710,7 +1846,7 @@
 
 
 /***/ },
-/* 24 */
+/* 26 */
 /*!********************************************!*\
   !*** ./~/axios/lib/helpers/combineURLs.js ***!
   \********************************************/
@@ -1731,7 +1867,7 @@
 
 
 /***/ },
-/* 25 */
+/* 27 */
 /*!**************************************!*\
   !*** ./~/axios/lib/cancel/Cancel.js ***!
   \**************************************/
@@ -1759,7 +1895,7 @@
 
 
 /***/ },
-/* 26 */
+/* 28 */
 /*!*******************************************!*\
   !*** ./~/axios/lib/cancel/CancelToken.js ***!
   \*******************************************/
@@ -1767,7 +1903,7 @@
 
 	'use strict';
 	
-	var Cancel = __webpack_require__(/*! ./Cancel */ 25);
+	var Cancel = __webpack_require__(/*! ./Cancel */ 27);
 	
 	/**
 	 * A `CancelToken` is an object that can be used to request cancellation of an operation.
@@ -1825,7 +1961,7 @@
 
 
 /***/ },
-/* 27 */
+/* 29 */
 /*!***************************************!*\
   !*** ./~/axios/lib/helpers/spread.js ***!
   \***************************************/
@@ -1861,42 +1997,11 @@
 
 
 /***/ },
-/* 28 */
-/*!**************************************!*\
-  !*** ./core/workers/htmlCompiler.js ***!
-  \**************************************/
+/* 30 */
+/*!***********************************!*\
+  !*** ./core/workers/animation.js ***!
+  \***********************************/
 /***/ function(module, exports) {
-
-	"use strict";
-	
-	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-	
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-	
-	var HTMLCompiler = function () {
-	  function HTMLCompiler() {
-	    _classCallCheck(this, HTMLCompiler);
-	  }
-	
-	  _createClass(HTMLCompiler, [{
-	    key: "compile",
-	    value: function compile(htmlString) {
-	      var _DOMParser = new DOMParser();
-	      return _DOMParser.parseFromString(htmlString, "text/html");
-	    }
-	  }]);
-	
-	  return HTMLCompiler;
-	}();
-	
-	module.exports = new HTMLCompiler();
-
-/***/ },
-/* 29 */
-/*!************************************!*\
-  !*** ./core/workers/nextWindow.js ***!
-  \************************************/
-/***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
@@ -1904,47 +2009,32 @@
 	
 	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 	
-	var HTMLCompiler = __webpack_require__(/*! ./htmlCompiler */ 28);
+	var Animation = function () {
+	  function Animation() {
+	    _classCallCheck(this, Animation);
 	
-	var NextWindow = function () {
-	  function NextWindow() {
-	    _classCallCheck(this, NextWindow);
-	
-	    this.nextWindow = document.createElement('div');
-	    this.nextWindow.style.display = 'none';
-	    this.nextWindow.id = 'navigate-animation-next-window';
 	    this.header = null;
-	    this.body = null;
 	  }
 	
-	  _createClass(NextWindow, [{
-	    key: 'prepare',
-	    value: function prepare() {
-	      var nextWindow = document.getElementById('navigate-animation-next-window');
-	      if (nextWindow !== null) {
-	        this.nextWindow = nextWindow;
-	      }
-	      document.body.appendChild(this.nextWindow);
+	  _createClass(Animation, [{
+	    key: 'loadHeader',
+	    value: function loadHeader(header) {
+	      this.header = header;
+	      this.styles = header.querySelectorAll('style');
 	    }
 	  }, {
-	    key: 'loadNextWindowData',
-	    value: function loadNextWindowData(data) {
-	      var page = HTMLCompiler.compile(data);
-	      this.header = page.getElementsByTagName('head')[0];
-	      this.body = page.getElementsByTagName('body')[0];
-	      this.nextWindow.appendChild(this.body);
-	    }
-	  }, {
-	    key: 'setAsCurrent',
-	    value: function setAsCurrent() {
-	      this.nextWindow.style.display = 'block';
+	    key: 'animate',
+	    value: function animate(target) {
+	      this.styles.forEach(function (style) {
+	        target.appendChild(style);
+	      });
 	    }
 	  }]);
 	
-	  return NextWindow;
+	  return Animation;
 	}();
 	
-	module.exports = new NextWindow();
+	module.exports = new Animation();
 
 /***/ }
 /******/ ]);

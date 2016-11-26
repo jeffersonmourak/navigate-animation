@@ -3,10 +3,14 @@ var nextWindow = require('./workers/nextWindow');
 var axios = require('axios');
 linkDiscovery.updateLinks();
 
-linkDiscovery.onNavigate((element, event) => {
+linkDiscovery.onNavigate((url, event) => {
   nextWindow.prepare();
-  axios.get(element.href).then( response => {
-    nextWindow.loadNextWindowData(response.data);
+  axios.get(url).then( response => {
+    nextWindow.loadNextWindowData(response.data, url);
     nextWindow.setAsCurrent();
+    if (event.type !== 'popstate') {
+      nextWindow.updateURL();
+    }
+    linkDiscovery.updateLinks();
   });
 })
