@@ -13,5 +13,8 @@ All the transitions on your code will be animated when you change the page, **Of
 # How it works,
 The application bind all `<a>` clicks and perform the transition between these pages.
 
+See the example
+http://jefersonmourak.me/navigate-animation
+
 # Licence
 - MIT
